@@ -54,7 +54,7 @@ getTemplates = M.fromList . qquery f where
 template :: Templates -> T.Text -> H.Html
 template t nm = case M.lookup nm t of
                   Nothing -> error $ "sswc: cannot find template "++T.unpack nm
-                  Just ns -> H.toHtml . H.unsafeByteString . Builder.toByteString . renderHtmlFragment UTF8 $ ns
+                  Just ns -> H.unsafeByteString . Builder.toByteString . renderHtmlFragment UTF8 $ ns
                   
 loadTemplatesFromFile :: String -> IO (Either String Templates)
 loadTemplatesFromFile fnm = do
@@ -64,14 +64,14 @@ loadTemplatesFromFile fnm = do
     Right doc -> loadTemplates doc
 
 loadTemplates :: Document -> IO (Either String Templates)
-loadTemplates doc = lT [] doc where
+loadTemplates = lT [] where
  lT prevloads doc = do
    let these = getTemplates doc 
        getLink (Element "link" attrs _) 
            = case (lookup "rel" attrs, lookup "href" attrs) of
                (Just "import", Just href) -> [href]
                _ -> []
-       getLink e
+       getLink _
            = []
        links = filter (not . (`elem` prevloads)) $ qquery getLink doc
    loads <- mapM (loadDocument . T.unpack) links
