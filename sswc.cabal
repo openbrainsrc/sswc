@@ -17,6 +17,7 @@ executable sswc
   hs-source-dirs:      src
   ghc-options:         -Wall -fno-warn-unused-do-bind
   build-depends:       base ==4.6.*
+                     , sswc
 
 library
   ghc-options:       -Wall -fno-warn-unused-do-bind
@@ -25,3 +26,5 @@ library
   ghc-options:         -Wall -fno-warn-unused-do-bind
   build-depends:       base ==4.6.*
                      , xmlhtml <0.2.4
+                     , bytestring
+                     , syb
