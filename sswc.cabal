@@ -23,8 +23,11 @@ library
   ghc-options:       -Wall -fno-warn-unused-do-bind
   exposed-modules:     Text.SSWC
   hs-source-dirs:      lib
-  ghc-options:         -Wall -fno-warn-unused-do-bind
+  ghc-options:         -Wall -fno-warn-unused-do-bind -fno-warn-orphans -fwarn-incomplete-patterns
   build-depends:       base ==4.6.*
                      , xmlhtml <0.2.4
                      , bytestring
+                     , text
                      , syb
+                     , containers
+                     , blaze-builder
