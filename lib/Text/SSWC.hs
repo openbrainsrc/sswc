@@ -3,6 +3,7 @@
 module Text.SSWC 
     ( loadDocument
     , renderDocument
+    , loadTemplates
     , getTemplates
     , runTemplates
     , Document(..)) where
@@ -15,6 +16,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as DTE
 import qualified Data.Map.Strict as M
 import qualified Blaze.ByteString.Builder as Builder
+import Data.Either
 
 deriving instance Data Document
 deriving instance Typeable Document
@@ -46,12 +48,40 @@ getTemplates = M.fromList . qquery f where
           Nothing -> []
   f _ = []
 
+loadTemplates :: Document -> IO (Either String Templates)
+loadTemplates doc = lT [] doc where
+ lT prevloads doc = do
+   let these = getTemplates doc 
+       getLink (Element "link" attrs _) 
+           = case (lookup "rel" attrs, lookup "href" attrs) of
+               (Just "import", Just href) -> [href]
+               _ -> []
+       getLink e
+           = []
+       links = filter (not . (`elem` prevloads)) $ qquery getLink doc
+   loads <- mapM (loadDocument . T.unpack) links
+   case collect loads of
+     Left err -> return $ Left err
+     Right docs -> do 
+       those <- mapM (lT (links++prevloads)) docs
+       case collect those of
+         Left err -> return $ Left err
+         Right tmpls -> return $ Right $ M.unions $ these:tmpls
+
+collect :: [Either String a] -> Either String [a]
+collect es = case partitionEithers es of
+               ([], xs) -> Right xs
+               (errs, _) -> Left $ unlines errs
+
 runTemplates :: Templates -> Document -> Document
 runTemplates ts d = d { docContent = traverse $ docContent d } where
   traverse :: [Node] -> [Node]
-  traverse = map onChildren . subTemplates . filter (not . isTemplate) 
-  isTemplate (Element "template" _ _) = True
-  isTemplate _ = False
+  traverse = map onChildren . subTemplates . filter (not . isLinkOrTemplate) 
+  isLinkOrTemplate (Element "template" _ _) = True
+  isLinkOrTemplate (Element "link" atts _) = case lookup "rel" atts of
+                                               Just "import" -> True
+                                               _ -> False
+  isLinkOrTemplate _ = False
   subTemplates [] = []
   subTemplates (e@(Element tagnm _ _):es) =
       case M.lookup tagnm ts of
