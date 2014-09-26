@@ -1,5 +1,6 @@
 import System.Environment
 import Text.SSWC
+import qualified Data.Text.IO as T
 
 main :: IO ()
 main = getArgs >>= dispatch
@@ -7,6 +8,9 @@ main = getArgs >>= dispatch
 dispatch :: [String] -> IO ()
 dispatch [] =   putStrLn "usage: sswc filename"
 dispatch (fnm:_) = do
-  loadFile fnm
-  return ()
-  
+  edoc <- loadDocument fnm
+  case edoc of 
+    Right doc -> do let ts = getTemplates doc
+                        newDoc = runTemplates ts doc
+                    T.putStrLn $ renderDocument newDoc
+    Left err -> putStrLn $ "error: "++err

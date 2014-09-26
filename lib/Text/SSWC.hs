@@ -1,12 +1,18 @@
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving #-}
 
-module Text.SSWC where
+module Text.SSWC 
+    ( loadDocument
+    , renderDocument
+    , getTemplates
+    , runTemplates
+    , Document(..)) where
 
 import Text.XmlHtml
 import Control.Applicative
 import qualified Data.ByteString as BS
 import Data.Generics hiding (Generic)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as DTE
 import qualified Data.Map.Strict as M
 import qualified Blaze.ByteString.Builder as Builder
 
@@ -23,16 +29,12 @@ deriving instance Typeable InternalSubset
 deriving instance Data Encoding
 deriving instance Typeable Encoding
 
-loadFile :: String -> IO ()
-loadFile fnm = do
-  edoc <- parseHTML fnm <$> BS.readFile fnm 
-  case edoc of 
-    Right doc -> do let ts = getTemplates doc
-                        newDoc = runTemplates ts doc
-                        docbs = Builder.toByteString $ render newDoc
-                    print ts
-                    BS.putStrLn docbs
-    Left err -> putStrLn $ "error: "++err
+loadDocument :: String -> IO (Either String Document)
+loadDocument fnm = do
+  parseHTML fnm <$> BS.readFile fnm 
+
+renderDocument :: Document -> T.Text
+renderDocument =  DTE.decodeUtf8  . Builder.toByteString . render
 
 type Templates = M.Map T.Text [Node] 
 
@@ -45,17 +47,19 @@ getTemplates = M.fromList . qquery f where
   f _ = []
 
 runTemplates :: Templates -> Document -> Document
-runTemplates ts = qmap f where
-  f (Element "template" _ _) = Comment "template"
-  f e@(Element tagnm _ _) = case M.lookup tagnm ts of
-                              Just [elm] -> elm
-                              Just elms -> Element "div" [] elms
-                              Nothing -> e
-  f e = e
-
+runTemplates ts d = d { docContent = traverse $ docContent d } where
+  traverse :: [Node] -> [Node]
+  traverse = map onChildren . subTemplates . filter (not . isTemplate) 
+  isTemplate (Element "template" _ _) = True
+  isTemplate _ = False
+  subTemplates [] = []
+  subTemplates (e@(Element tagnm _ _):es) =
+      case M.lookup tagnm ts of
+        Just elms -> elms ++ subTemplates es
+        Nothing -> e : subTemplates es
+  subTemplates (e:es) = e : subTemplates es
+  onChildren node@(Element _ _ _) = node { elementChildren = traverse $ elementChildren node}
+  onChildren n = n
 
 qquery :: (Data a1, Typeable b) => (b -> [a]) -> a1 -> [a]
 qquery qf = everything (++) ([] `mkQ` qf)
-
-qmap :: (Data a, Typeable b) => (b -> b) -> a -> a
-qmap f = everywhere (mkT f)

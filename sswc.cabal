@@ -18,6 +18,7 @@ executable sswc
   ghc-options:         -Wall -fno-warn-unused-do-bind
   build-depends:       base ==4.6.*
                      , sswc
+                     , text
 
 library
   ghc-options:       -Wall -fno-warn-unused-do-bind
