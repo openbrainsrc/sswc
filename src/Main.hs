@@ -12,5 +12,6 @@ dispatch (fnm:_) = do
   case edoc of 
     Right doc -> do let ts = getTemplates doc
                         newDoc = runTemplates ts doc
+                    print ts
                     T.putStrLn $ renderDocument newDoc
     Left err -> putStrLn $ "error: "++err

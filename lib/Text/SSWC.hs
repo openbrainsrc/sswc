@@ -42,7 +42,7 @@ getTemplates :: Document -> Templates
 getTemplates = M.fromList . qquery f where
   f (Element "template" attrs childs) 
       = case lookup "name" attrs of
-          Just nm -> [(nm,childs)]
+          Just nm -> [(nm,chompTextNodes childs)]
           Nothing -> []
   f _ = []
 
@@ -63,3 +63,13 @@ runTemplates ts d = d { docContent = traverse $ docContent d } where
 
 qquery :: (Data a1, Typeable b) => (b -> [a]) -> a1 -> [a]
 qquery qf = everything (++) ([] `mkQ` qf)
+
+chompTextNodes :: [Node] -> [Node]
+chompTextNodes = reverse . dropWhile chompMe . reverse . dropWhile chompMe where
+  chompMe (TextNode s) = T.all chompc s
+  chompMe _ = False
+
+  chompc ' ' = True
+  chompc '\n' = True
+  chompc '\t' = True
+  chompc _ = False
