@@ -4,8 +4,10 @@ module Text.SSWC
     ( loadDocument
     , renderDocument
     , loadTemplates
+    , loadTemplatesFromFile
     , getTemplates
     , runTemplates
+    , template
     , Document(..)) where
 
 import Text.XmlHtml
@@ -17,6 +19,7 @@ import qualified Data.Text.Encoding as DTE
 import qualified Data.Map.Strict as M
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Either
+import qualified Text.Blaze.Html as H
 
 deriving instance Data Document
 deriving instance Typeable Document
@@ -48,6 +51,18 @@ getTemplates = M.fromList . qquery f where
           Nothing -> []
   f _ = []
 
+template :: Templates -> T.Text -> H.Html
+template t nm = case M.lookup nm t of
+                  Nothing -> error $ "sswc: cannot find template "++T.unpack nm
+                  Just ns -> H.toHtml . H.unsafeByteString . Builder.toByteString . renderHtmlFragment UTF8 $ ns
+                  
+loadTemplatesFromFile :: String -> IO (Either String Templates)
+loadTemplatesFromFile fnm = do
+  edoc <- loadDocument fnm
+  case edoc of 
+    Left err -> return $ Left err
+    Right doc -> loadTemplates doc
+
 loadTemplates :: Document -> IO (Either String Templates)
 loadTemplates doc = lT [] doc where
  lT prevloads doc = do
@@ -60,6 +75,8 @@ loadTemplates doc = lT [] doc where
            = []
        links = filter (not . (`elem` prevloads)) $ qquery getLink doc
    loads <- mapM (loadDocument . T.unpack) links
+   
+   -- we really should be in some error monad here...
    case collect loads of
      Left err -> return $ Left err
      Right docs -> do 
@@ -74,7 +91,10 @@ collect es = case partitionEithers es of
                (errs, _) -> Left $ unlines errs
 
 runTemplates :: Templates -> Document -> Document
-runTemplates ts d = d { docContent = traverse $ docContent d } where
+runTemplates ts d = d { docContent = runTemplatesOnNodes ts $ docContent d } where
+
+runTemplatesOnNodes :: Templates -> [Node] -> [Node]
+runTemplatesOnNodes ts = traverse where
   traverse :: [Node] -> [Node]
   traverse = map onChildren . subTemplates . filter (not . isLinkOrTemplate) 
   isLinkOrTemplate (Element "template" _ _) = True

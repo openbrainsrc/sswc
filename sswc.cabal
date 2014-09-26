@@ -32,3 +32,4 @@ library
                      , syb
                      , containers
                      , blaze-builder
+                     , blaze-html
