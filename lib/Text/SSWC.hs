@@ -67,8 +67,8 @@ instance TemplateValue [(T.Text,H.Html)] where
 -- > instance Generic Person
 -- > instance HasDatatypeInfo Person
 
-instance TemplateValue Person where
-  templateValues = gTemplateValue
+-- > instance TemplateValue Person where
+-- >   templateValues = gTemplateValue
 
 gTemplateValue :: forall a. (Generic a, HasDatatypeInfo a, All2 H.ToMarkup (Code a))
       => a -> Values
