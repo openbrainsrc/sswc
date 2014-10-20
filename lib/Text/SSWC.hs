@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, TypeSynonymInstances, FlexibleInstances #-}
 
 module Text.SSWC
     ( loadDocument
@@ -46,7 +46,18 @@ loadDocument fnm = do
 renderDocument :: Document -> T.Text
 renderDocument =  DTE.decodeUtf8  . Builder.toByteString . render
 
-type Templates = M.Map T.Text (M.Map T.Text H.Html -> [Node])
+type Templates = M.Map T.Text (Values -> [Node])
+
+type Values = M.Map T.Text H.Html
+
+class TemplateValue a where
+  templateValues :: a-> Values
+
+instance TemplateValue Values where
+  templateValues = id
+
+instance TemplateValue [(T.Text,H.Html)] where
+  templateValues = M.fromList
 
 getTemplates :: Document -> Templates
 getTemplates = M.fromList . qquery f where
@@ -57,11 +68,11 @@ getTemplates = M.fromList . qquery f where
   f _ = []
 
 -- for use in Spock
-template :: Templates -> T.Text -> M.Map T.Text H.Html -> H.Html
+template :: TemplateValue a => Templates -> T.Text -> a -> H.Html
 template t nm vals =
   case M.lookup nm t of
         Nothing -> error $ "sswc: cannot find template "++T.unpack nm
-        Just ns -> H.unsafeByteString . Builder.toByteString . renderHtmlFragment UTF8 $ (ns vals)
+        Just ns -> H.unsafeByteString . Builder.toByteString . renderHtmlFragment UTF8 $ (ns $ templateValues vals)
 
 loadTemplatesFromFile :: String -> IO (Either String Templates)
 loadTemplatesFromFile fnm = do
@@ -139,7 +150,7 @@ chompTextNodes = reverse . dropWhile chompMe . reverse . dropWhile chompMe where
   chompc '\t' = True
   chompc _ = False
 
-substVals :: M.Map T.Text H.Html -> [Node] -> [Node]
+substVals :: Values -> [Node] -> [Node]
 substVals vals = qmap f where
   f (TextNode s) = TextNode $ replace s
   f n = n
