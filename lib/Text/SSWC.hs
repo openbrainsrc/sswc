@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, DeriveDataTypeable, DeriveGeneric, StandaloneDeriving, TypeSynonymInstances, FlexibleInstances, ConstraintKinds, GADTs #-}
 
 module Text.SSWC
     ( loadDocument
@@ -14,14 +14,17 @@ import Text.XmlHtml
 import Control.Applicative
 import qualified Data.ByteString as BS
 import Data.Generics hiding (Generic)
+import qualified GHC.Generics as GHC
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Encoding as DTE
 import qualified Data.Map.Strict as M
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Either
-import Data.Monoid
+import Data.Monoid hiding (All)
 import Text.Blaze.Html.Renderer.Text
+import Generics.SOP
+
 
 import qualified Text.Blaze.Html as H
 import qualified Text.Blaze.Internal as BI
@@ -58,6 +61,36 @@ instance TemplateValue Values where
 
 instance TemplateValue [(T.Text,H.Html)] where
   templateValues = M.fromList
+
+-- > data Person = Person { name:: String, age:: Int } deriving (GHC.Generic)
+
+-- > instance Generic Person
+-- > instance HasDatatypeInfo Person
+
+instance TemplateValue Person where
+  templateValues = gTemplateValue
+
+gTemplateValue :: forall a. (Generic a, HasDatatypeInfo a, All2 H.ToMarkup (Code a))
+      => a -> Values
+gTemplateValue a = case datatypeInfo (Proxy :: Proxy a) of
+            ADT     _ _ cs -> gTV' cs         (from a)
+            Newtype _ _ c  -> gTV' (c :* Nil) (from a)
+
+gTV' :: (All2 H.ToMarkup xss, SingI xss) => NP ConstructorInfo xss -> SOP I xss -> Values
+gTV' cs (SOP sop) = unI . hcollapse $ hcliftA2' p goConstructor cs sop
+
+goConstructor :: All H.ToMarkup xs => ConstructorInfo xs -> NP I xs -> K Values xs
+goConstructor (Record _n ns) args =
+    K $ M.fromList args'
+  where
+    args' :: [(T.Text,H.Html)]
+    args' = hcollapse $ hcliftA2 p goField ns args
+
+goField :: H.ToMarkup a => FieldInfo a -> I a -> K (T.Text,H.Html) a
+goField (FieldInfo field) (I a) = K $ (T.pack field, H.toHtml a)
+
+p :: Proxy H.ToMarkup
+p = Proxy
 
 getTemplates :: Document -> Templates
 getTemplates = M.fromList . qquery f where
