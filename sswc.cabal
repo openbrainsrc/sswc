@@ -33,3 +33,4 @@ library
                      , containers
                      , blaze-builder
                      , blaze-html
+                     , blaze-markup
