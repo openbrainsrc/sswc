@@ -30,6 +30,7 @@ library
                      , bytestring
                      , text
                      , syb
+                     , mtl
                      , containers
                      , blaze-builder
                      , blaze-html

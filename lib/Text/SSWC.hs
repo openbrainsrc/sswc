@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, DeriveDataTypeable, DeriveGeneric, StandaloneDeriving, TypeSynonymInstances, FlexibleInstances, ConstraintKinds, GADTs #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, DeriveDataTypeable, DeriveGeneric, StandaloneDeriving, TypeSynonymInstances, FlexibleInstances, ConstraintKinds, GADTs, DefaultSignatures #-}
 
 module Text.SSWC
     ( loadDocument
@@ -7,6 +7,7 @@ module Text.SSWC
     , loadTemplatesFromFile
     , getTemplates
     , runTemplates
+    , webTemplate
     , template
     , Document(..)) where
 
@@ -14,7 +15,7 @@ import Text.XmlHtml
 import Control.Applicative
 import qualified Data.ByteString as BS
 import Data.Generics hiding (Generic)
-import qualified GHC.Generics as GHC
+import qualified GHC.Generics as GHC ()
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Encoding as DTE
@@ -24,6 +25,7 @@ import Data.Either
 import Data.Monoid hiding (All)
 import Text.Blaze.Html.Renderer.Text
 import Generics.SOP
+import Control.Monad.Trans
 
 
 import qualified Text.Blaze.Html as H
@@ -56,11 +58,18 @@ type Values = M.Map T.Text H.Html
 class TemplateValue a where
   templateValues :: a-> Values
 
+  default templateValues :: (Generic a, HasDatatypeInfo a, All2 H.ToMarkup (Code a)) => a -> Values
+  templateValues = gTemplateValue
+
+
 instance TemplateValue Values where
   templateValues = id
 
 instance TemplateValue [(T.Text,H.Html)] where
   templateValues = M.fromList
+
+instance TemplateValue () where
+  templateValues = const $ M.empty
 
 -- > data Person = Person { name:: String, age:: Int } deriving (GHC.Generic)
 
@@ -106,6 +115,13 @@ template t nm vals =
   case M.lookup nm t of
         Nothing -> error $ "sswc: cannot find template "++T.unpack nm
         Just ns -> H.unsafeByteString . Builder.toByteString . renderHtmlFragment UTF8 $ (ns $ templateValues vals)
+
+webTemplate :: (MonadIO m, TemplateValue a) => FilePath -> T.Text -> m ( a -> H.Html)
+webTemplate fnm nm = liftIO $ do
+  Right templs <- loadTemplatesFromFile fnm
+  return $ \val -> template templs nm val
+
+
 
 loadTemplatesFromFile :: String -> IO (Either String Templates)
 loadTemplatesFromFile fnm = do
