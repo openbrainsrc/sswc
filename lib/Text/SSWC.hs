@@ -8,6 +8,7 @@ module Text.SSWC
     , getTemplates
     , runTemplates
     , webTemplate
+    , webTemplates
     , template
     , Document(..)) where
 
@@ -120,6 +121,11 @@ webTemplate :: (MonadIO m, TemplateValue a) => FilePath -> T.Text -> m ( a -> H.
 webTemplate fnm nm = liftIO $ do
   Right templs <- loadTemplatesFromFile fnm
   return $ \val -> template templs nm val
+
+webTemplates :: (MonadIO m, TemplateValue a) => FilePath -> m (T.Text -> H.Html)
+webTemplates fnm = liftIO $ do
+  Right templs <- loadTemplatesFromFile fnm
+  return $ \nm -> template templs nm ()
 
 
 
