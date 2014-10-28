@@ -122,7 +122,7 @@ webTemplate fnm nm = liftIO $ do
   Right templs <- loadTemplatesFromFile fnm
   return $ \val -> template templs nm val
 
-webTemplates :: (MonadIO m, TemplateValue a) => FilePath -> m (T.Text -> H.Html)
+webTemplates :: MonadIO m => FilePath -> m (T.Text -> H.Html)
 webTemplates fnm = liftIO $ do
   Right templs <- loadTemplatesFromFile fnm
   return $ \nm -> template templs nm ()
