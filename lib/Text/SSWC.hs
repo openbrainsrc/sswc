@@ -124,8 +124,10 @@ webTemplate fnm nm = liftIO $ do
 
 webTemplates :: MonadIO m => FilePath -> m (T.Text -> H.Html)
 webTemplates fnm = liftIO $ do
-  Right templs <- loadTemplatesFromFile fnm
-  return $ \nm -> template templs nm ()
+  etempls <- loadTemplatesFromFile fnm
+  case etempls of
+    Left err -> fail $ "loadTemplatesFromFile failure: "++err
+    Right templs -> return $ \nm -> template templs nm ()
 
 
 
